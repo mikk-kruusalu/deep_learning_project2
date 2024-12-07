@@ -1,0 +1,12 @@
+ruff==0.8.2
+pyright
+pre-commit
+matplotlib
+numpy
+wandb
+torch>=2.5
+torchvision
+kaggle
+jax
+jaxtyping
+equinox
