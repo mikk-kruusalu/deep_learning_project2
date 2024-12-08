@@ -7,7 +7,7 @@ wandb
 torch>=2.5
 torchvision
 kaggle
-jax[cuda12]
+jax
 jaxtyping
 equinox
 optax
