@@ -7,6 +7,8 @@ wandb
 torch>=2.5
 torchvision
 kaggle
-jax
+jax[cuda12]
 jaxtyping
 equinox
+optax
+pyyaml

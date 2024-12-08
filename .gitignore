@@ -2,4 +2,4 @@
 **/__pycache__
 wandb
 venv
-/data/malaria/
+/autoencoders/data/malaria/

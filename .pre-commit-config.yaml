@@ -19,5 +19,8 @@ repos:
             torch,
             torchvision,
             typing_extensions,
-            matplotlib
+            matplotlib,
+            equinox,
+            wandb,
+            pyyaml
           ]
