@@ -1,7 +1,7 @@
 import equinox as eqx
 import jax
 import jax.random as jr
-from jaxtyping import Array, Float
+from jaxtyping import Float
 
 
 class FCN(eqx.Module):
@@ -11,10 +11,8 @@ class FCN(eqx.Module):
     """
 
     layers: list
-    mu: Array
 
-    def __init__(self, nhidden, nlayers, key, mu=0.0):
-        self.mu = jax.numpy.array(mu)
+    def __init__(self, nhidden, nlayers, key):
         keys = jr.split(key, nlayers)
 
         hidden_neurons = [1, *((nlayers - 1) * [nhidden]), 1]
