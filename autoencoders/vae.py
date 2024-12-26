@@ -24,84 +24,81 @@ class MalariaVAE(eqx.Module):
     mykey: Array
 
     def __init__(self, key, hidden_size=2, in_channels=1):
-        (
-            key1,
-            key2,
-            key3,
-            key4,
-            key5,
-            key6,
-            key7,
-            key8,
-            dkey1,
-            dkey2,
-            dkey3,
-            dkey4,
-            dkey5,
-            dkey6,
-            dkey7,
-        ) = jr.split(key, 15)
-        _, self.mykey = jr.split(key)
+        *keys, self.mykey = jr.split(key, 16)
 
         self.encoder = [
-            eqx.nn.Conv2d(in_channels, 32, kernel_size=5, key=key1),
+            eqx.nn.Conv2d(in_channels, 32, kernel_size=5, key=keys[0]),
             eqx.nn.MaxPool2d(kernel_size=2),
             jax.nn.relu,
-            eqx.nn.Conv2d(32, 32, kernel_size=1, key=key2),
+            eqx.nn.Conv2d(32, 32, kernel_size=1, key=keys[1]),
             jax.nn.relu,
-            eqx.nn.Conv2d(32, 64, kernel_size=5, stride=2, key=key3),
+            eqx.nn.Conv2d(32, 64, kernel_size=5, stride=2, key=keys[2]),
             eqx.nn.MaxPool2d(kernel_size=4, stride=2),
             jax.nn.relu,
-            eqx.nn.Conv2d(64, 64, kernel_size=1, key=key4),
+            eqx.nn.Conv2d(64, 64, kernel_size=1, key=keys[3]),
             jax.nn.relu,
-            eqx.nn.Conv2d(64, 128, kernel_size=7, stride=2, key=key5),
+            eqx.nn.Conv2d(64, 128, kernel_size=7, stride=2, key=keys[4]),
             eqx.nn.MaxPool2d(kernel_size=5, stride=2),
             jax.nn.relu,
             jnp.ravel,
-            eqx.nn.Linear(2048, 512, key=key6),
+            eqx.nn.Linear(2048, 512, key=keys[5]),
             jax.nn.relu,
         ]
 
-        self.mean = eqx.nn.Linear(512, hidden_size, key=key7)
-        self.log_var = eqx.nn.Linear(512, hidden_size, key=key8)
+        self.mean = eqx.nn.Linear(512, hidden_size, key=keys[6])
+        self.log_var = eqx.nn.Linear(512, hidden_size, key=keys[7])
 
         self.decoder = [
-            eqx.nn.Linear(hidden_size, 512, key=dkey7),
+            eqx.nn.Linear(hidden_size, 512, key=keys[8]),
             jax.nn.relu,
-            eqx.nn.Linear(512, 2048, key=dkey6),
+            eqx.nn.Linear(512, 2048, key=keys[9]),
             jax.nn.relu,
             lambda x: jnp.reshape(x, (128, 4, 4)),
             lambda x: upsample_2d(x, factor=3),
-            eqx.nn.ConvTranspose2d(128, 64, kernel_size=7, stride=2, key=dkey5),
+            eqx.nn.ConvTranspose2d(128, 64, kernel_size=7, stride=2, key=keys[10]),
             jax.nn.relu,
-            eqx.nn.ConvTranspose2d(64, 64, kernel_size=1, key=dkey4),
+            eqx.nn.ConvTranspose2d(64, 64, kernel_size=1, key=keys[11]),
             jax.nn.relu,
             lambda x: upsample_2d(x, factor=2),
             lambda x: jnp.pad(x, ((0, 0), (1, 1), (1, 1))),
-            eqx.nn.ConvTranspose2d(64, 32, kernel_size=5, stride=2, key=dkey3),
+            eqx.nn.ConvTranspose2d(64, 32, kernel_size=5, stride=2, key=keys[12]),
             jax.nn.relu,
-            eqx.nn.ConvTranspose2d(32, 32, kernel_size=1, key=dkey2),
+            eqx.nn.ConvTranspose2d(32, 32, kernel_size=1, key=keys[13]),
             jax.nn.relu,
             lambda x: jnp.pad(x, ((0, 0), (0, 1), (0, 1))),
-            eqx.nn.ConvTranspose2d(32, in_channels, kernel_size=5, key=dkey1),
+            eqx.nn.ConvTranspose2d(32, in_channels, kernel_size=5, key=keys[14]),
             jax.nn.sigmoid,
         ]
 
-    def __call__(self, x: Float[Array, "1 128 128"]):  # -> Float[Array, "1 128 128"]:
+    def __call__(
+        self, key, x: Float[Array, "1 128 128"]
+    ):  # -> Float[Array, "1 128 128"]:
+        mean, log_var = self.encode(x)
+        z = self.reparametrize(key, mean, log_var)
+        x = self.decode(z)
+        return x, z, log_var, mean
+
+    def encode(self, x: Float[Array, "1 128 128"]):
         for layer in self.encoder:
             x = layer(x)
 
-        _, subkey = jr.split(self.mykey)
         mean = self.mean(x)
-        eps = jr.multivariate_normal(subkey, jnp.zeros(2), jnp.diag(jnp.ones(2)))
         log_var = self.log_var(x)
+        return mean, log_var
+
+    def reparametrize(self, key, mean, log_var):
+        # generate standard normal random variable
+        eps = jr.multivariate_normal(key, jnp.zeros(2), jnp.diag(jnp.ones(2)))
+        # reparametrize to given mean and variance
         z = mean + jnp.exp(log_var / 2) * eps
 
+        return z
+
+    def decode(self, x: Float[Array, "1 2"]):
         for layer in self.decoder:
-            jax.debug.print(str(layer))
-            x = layer(mean)
-            jax.debug.print(str(x.shape))
-        return x, z
+            x = layer(x)
+
+        return x
 
 
 if __name__ == "__main__":
@@ -117,7 +114,7 @@ if __name__ == "__main__":
     img = img.numpy()
     label = label.numpy()
 
-    y, h = jax.vmap(model)(img)
+    y, h, *_ = jax.vmap(model)(jr.split(jr.key(1234), img.shape[0]), img)
 
     print(img.shape)
     print(label.shape)

@@ -1,0 +1,10 @@
+exp_name: test
+model: MalariaVAE
+hyperparams:
+  batch_size: 64
+  learning_rate: 1.0e-4
+  nepochs: 2
+  model:
+    hidden_size: 2
+logger:
+  project: deep-learning-malaria-vae

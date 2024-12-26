@@ -76,7 +76,9 @@ class MalariaAutoencoder(eqx.Module):
             jax.nn.sigmoid,
         ]
 
-    def __call__(self, x: Float[Array, "1 128 128"]):  # -> Float[Array, "1 128 128"]:
+    def __call__(
+        self, key, x: Float[Array, "1 128 128"]
+    ):  # -> Float[Array, "1 128 128"]:
         for layer in self.encoder:
             x = layer(x)
 
@@ -100,7 +102,7 @@ if __name__ == "__main__":
     img = img.numpy()
     label = label.numpy()
 
-    y, h = jax.vmap(model)(img)
+    y, h = jax.vmap(model)(jr.key(102), img)
 
     print(img.shape)
     print(label.shape)
