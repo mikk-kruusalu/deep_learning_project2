@@ -5,6 +5,7 @@ from typing import Any
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import jax.random as jr
 import matplotlib.pyplot as plt
 import numpy as np
 import optax
@@ -14,19 +15,35 @@ from autoencoder import MalariaAutoencoder
 from data.malaria import get_dataloaders, load_dataset
 from jaxtyping import Array, Float
 from torch.utils.data import DataLoader
+from vae import MalariaVAE
 
 
 @eqx.filter_jit
-def loss(
+def loss_ae(
     model: MalariaAutoencoder,
+    key: Float[Array, " "],
     img: Float[Array, "batch 1 128 128"],
 ) -> Float[Array, ""]:
-    pred, h = jax.vmap(model)(img)
+    pred, h = jax.vmap(model)(key, img)
 
     reconstruction_loss = jnp.sum((pred - img) ** 2)
     hidden_l1 = jnp.sum(jnp.abs(h))
 
     return reconstruction_loss + hidden_l1
+
+
+@eqx.filter_jit
+def loss_vae(
+    model: MalariaVAE,
+    key: Float[Array, "batch 1"],
+    img: Float[Array, "batch 1 128 128"],
+) -> Float[Array, ""]:
+    pred, h, log_var, mu = jax.vmap(model)(key, img)
+
+    reconstruction_loss = jnp.sum((pred - img) ** 2)
+    kl_div = -0.5 * jnp.sum(1 + log_var - mu**2 - jnp.exp(log_var / 2))
+
+    return reconstruction_loss + kl_div
 
 
 @dataclass
@@ -41,6 +58,7 @@ class LogMetrics:
         self._labels_by_batch = []
         self.__collect_labels = True
         self.num_batches = loader_length
+        self.mykey = jr.key(1010)
 
     def reset(self, all=False):
         self.loss = 0
@@ -54,7 +72,9 @@ class LogMetrics:
         self.loss += loss / self.num_batches
 
         if save_plots:
-            pred, hidden = jax.vmap(model)(true_img)
+            keys = jr.split(self.mykey, true_img.shape[0] + 1)
+            self.mykey = keys[0]
+            pred, hidden, *_ = jax.vmap(model)(keys[1:], true_img)
 
             id = np.random.randint(0, true_img.shape[0])
             self.examples.append((pred[id], true_img[id], labels[id]))
@@ -91,24 +111,27 @@ class LogMetrics:
 
 
 def train(
-    model: MalariaAutoencoder,
+    model: MalariaAutoencoder | MalariaVAE,
     train_loader: DataLoader,
     test_loader: DataLoader,
     optim: optax.GradientTransformation,
+    loss_fn,
     nepochs: int,
-) -> MalariaAutoencoder:
+) -> MalariaAutoencoder | MalariaVAE:
     train_metrics = LogMetrics(len(train_loader))
     test_metrics = LogMetrics(len(test_loader))
     opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
     @eqx.filter_jit
-    def make_step(model, opt_state, imgs: Float[Array, "batch 1 128 128"]):
-        loss_value, grads = eqx.filter_value_and_grad(loss)(model, imgs)
+    def make_step(model, opt_state, key, imgs: Float[Array, "batch 1 128 128"]):
+        loss_value, grads = eqx.filter_value_and_grad(loss_fn)(model, key, imgs)
         updates, opt_state = optim.update(
             grads, opt_state, eqx.filter(model, eqx.is_array)
         )
         model = eqx.apply_updates(model, updates)
         return model, opt_state, loss_value
+
+    key = jr.key(1026)
 
     for epoch in range(nepochs):
         log_summary = epoch % 2 == 0 or epoch == nepochs - 1
@@ -116,19 +139,23 @@ def train(
         test_metrics.reset()
 
         for imgs, labels in train_loader:
+            keys = jr.split(key, imgs.shape[0] + 1)
+            key = keys[0]
             imgs = imgs.numpy()
             labels = labels.numpy()
 
-            model, opt_state, loss_value = make_step(model, opt_state, imgs)
+            model, opt_state, loss_value = make_step(model, opt_state, keys[1:], imgs)
 
             train_metrics.log(
                 loss_value.item(), model, imgs, labels, save_plots=log_summary
             )
 
         for imgs, labels in test_loader:
+            keys = jr.split(key, imgs.shape[0] + 1)
+            key = keys[0]
             imgs = imgs.numpy()
             labels = labels.numpy()
-            loss_value = loss(model, imgs)
+            loss_value = loss_fn(model, keys[1:], imgs)
 
             test_metrics.log(
                 loss_value.item(), model, imgs, labels, save_plots=log_summary
@@ -168,6 +195,16 @@ def parse_args():
     return args
 
 
+models = {
+    "MalariaAutoencoder": MalariaAutoencoder,
+    "MalariaVAE": MalariaVAE,
+}
+
+loss_fns = {
+    "MalariaAutoencoder": loss_ae,
+    "MalariaVAE": loss_vae,
+}
+
 if __name__ == "__main__":
     args = parse_args()
 
@@ -187,6 +224,7 @@ if __name__ == "__main__":
     )
 
     optim = optax.adamw(hyperparams["learning_rate"])
-    model = MalariaAutoencoder(key=jax.random.key(1234), **hyperparams["model"])
+    model = models[config["model"]](key=jax.random.key(1234), **hyperparams["model"])
+    loss_fn = loss_fns[config["model"]]
 
-    train(model, train_loader, test_loader, optim, hyperparams["nepochs"])
+    train(model, train_loader, test_loader, optim, loss_fn, hyperparams["nepochs"])
