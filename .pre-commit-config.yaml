@@ -23,5 +23,6 @@ repos:
             equinox,
             wandb,
             pyyaml,
-            diffrax
+            diffrax,
+            tsnex
           ]

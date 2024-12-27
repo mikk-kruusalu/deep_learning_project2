@@ -9,6 +9,7 @@ import jax.random as jr
 import matplotlib.pyplot as plt
 import numpy as np
 import optax
+import tsnex
 import wandb
 import yaml
 from autoencoder import MalariaAutoencoder
@@ -89,9 +90,11 @@ class LogMetrics:
         self.hiddens = jnp.concat(self._hiddens_by_batch)
         self.labels = jnp.concat(self._labels_by_batch)
 
+        embeddings = tsnex.transform(self.hiddens)
+
         fig, ax = plt.subplots(constrained_layout=True)
 
-        ax.scatter(self.hiddens[:, 0], self.hiddens[:, 1], c=self.labels)
+        ax.scatter(embeddings[:, 0], embeddings[:, 1], c=self.labels)
         return fig
 
     def plot_examples(self, num_examples=6):
