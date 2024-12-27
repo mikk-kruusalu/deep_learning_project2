@@ -22,9 +22,11 @@ class MalariaVAE(eqx.Module):
     log_var: eqx.nn.Linear
     decoder: list
     mykey: Array
+    hidden_size: int
 
     def __init__(self, key, hidden_size=2, in_channels=1):
         *keys, self.mykey = jr.split(key, 16)
+        self.hidden_size = hidden_size
 
         self.encoder = [
             eqx.nn.Conv2d(in_channels, 32, kernel_size=5, key=keys[0]),
@@ -88,7 +90,9 @@ class MalariaVAE(eqx.Module):
 
     def reparametrize(self, key, mean, log_var):
         # generate standard normal random variable
-        eps = jr.multivariate_normal(key, jnp.zeros(2), jnp.diag(jnp.ones(2)))
+        eps = jr.multivariate_normal(
+            key, jnp.zeros(self.hidden_size), jnp.diag(jnp.ones(self.hidden_size))
+        )
         # reparametrize to given mean and variance
         z = mean + jnp.exp(log_var / 2) * eps
 
