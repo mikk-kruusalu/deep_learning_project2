@@ -7,8 +7,9 @@ wandb
 torch>=2.5
 torchvision
 kaggle
-jax
+jax==0.4.35 # diffrax incompatibility
 jaxtyping
 equinox
 optax
 pyyaml
+diffrax==0.6.0

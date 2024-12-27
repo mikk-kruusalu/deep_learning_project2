@@ -22,5 +22,6 @@ repos:
             matplotlib,
             equinox,
             wandb,
-            pyyaml
+            pyyaml,
+            diffrax
           ]
