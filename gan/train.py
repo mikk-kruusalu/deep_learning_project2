@@ -179,7 +179,7 @@ def train(
                 loss,
                 discriminator,
                 discriminator_opt_state,
-                generator_state,
+                gen_state,
                 discriminator_state,
             ) = step_discriminator(
                 discriminator,
@@ -214,8 +214,8 @@ def train(
             gen_loss += loss / len(data_loader)
 
         log: dict[str, Any] = {
-            "train_loss": gen_loss,
-            "test_loss": discriminator_loss,
+            "gen_loss": gen_loss,
+            "discriminator_loss": discriminator_loss,
         }
         if log_summary:
             print(
@@ -226,11 +226,13 @@ def train(
             keys = jr.split(key, 3)
             key = keys[0]
             noise = jr.normal(keys[1], (12, latent_size, 1, 1))
-            rand_fake_imgs, gen_state = generator(noise, gen_state)
+            rand_fake_imgs, gen_state = jax.vmap(
+                generator, axis_name="batch", in_axes=(0, None), out_axes=(0, None)
+            )(noise, gen_state)
 
             fig, axes = plt.subplots(3, 4, constrained_layout=True)
             for ax, fake_img in zip(axes.ravel(), rand_fake_imgs):
-                ax.imshow(fake_img)
+                ax.imshow(jnp.permute_dims(fake_img, (1, 2, 0)))
 
             log.update({"generator_examples": wandb.Image(fig)})
             plt.close("all")
@@ -265,7 +267,7 @@ if __name__ == "__main__":
 
     keys = jr.split(jr.key(5480), 3)
 
-    train_data, test_data = load_dataset("autoencoders/data/malaria")
+    train_data, test_data = load_dataset("gan/data/satellite_images")
     data_loader, _ = get_dataloaders(train_data, test_data, hyperparams["batch_size"])
 
     gen_optim = optax.adam(hyperparams["learning_rate"])
