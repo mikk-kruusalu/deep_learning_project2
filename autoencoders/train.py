@@ -9,12 +9,12 @@ import jax.random as jr
 import matplotlib.pyplot as plt
 import numpy as np
 import optax
-import tsnex
 import wandb
 import yaml
 from autoencoder import MalariaAutoencoder
 from data.malaria import get_dataloaders, load_dataset
 from jaxtyping import Array, Float
+from sklearn.manifold import TSNE
 from torch.utils.data import DataLoader
 from vae import MalariaVAE
 
@@ -90,7 +90,7 @@ class LogMetrics:
         self.hiddens = jnp.concat(self._hiddens_by_batch)
         self.labels = jnp.concat(self._labels_by_batch)
 
-        embeddings = tsnex.transform(self.hiddens)
+        embeddings = TSNE().fit_transform(self.hiddens)  # pyright: ignore
 
         fig, ax = plt.subplots(constrained_layout=True)
 

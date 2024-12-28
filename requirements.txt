@@ -13,4 +13,4 @@ equinox
 optax
 pyyaml
 diffrax==0.6.0
-tsnex
+scikit-learn
