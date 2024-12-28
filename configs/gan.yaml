@@ -1,0 +1,10 @@
+exp_name: test
+model: GAN
+hyperparams:
+  batch_size: 128
+  learning_rate: 1.0e-4
+  nepochs: 2
+  model:
+    latent_size: 100
+logger:
+  project: deep-learning-gan
