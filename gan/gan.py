@@ -12,30 +12,19 @@ class Generator(eqx.Module):
     layers: list[Union[eqx.nn.ConvTranspose2d, eqx.nn.BatchNorm, Callable]]
 
     def __init__(self, input_shape: int, output_shape: tuple[int, int, int], key):
-        keys = jr.split(key, 6)
+        keys = jr.split(key, 5)
 
         height, width, channels = output_shape
 
         self.layers = [
             eqx.nn.ConvTranspose2d(
                 in_channels=input_shape,
-                out_channels=width * 16,
+                out_channels=width * 8,
                 kernel_size=4,
                 stride=1,
                 padding=0,
                 use_bias=False,
                 key=keys[0],
-            ),
-            eqx.nn.BatchNorm(input_size=width * 16, axis_name="batch"),
-            jax.nn.relu,
-            eqx.nn.ConvTranspose2d(
-                in_channels=width * 16,
-                out_channels=width * 8,
-                kernel_size=4,
-                stride=2,
-                padding=1,
-                use_bias=False,
-                key=keys[1],
             ),
             eqx.nn.BatchNorm(input_size=width * 8, axis_name="batch"),
             jax.nn.relu,
@@ -46,7 +35,7 @@ class Generator(eqx.Module):
                 stride=2,
                 padding=1,
                 use_bias=False,
-                key=keys[2],
+                key=keys[1],
             ),
             eqx.nn.BatchNorm(input_size=width * 4, axis_name="batch"),
             jax.nn.relu,
@@ -57,7 +46,7 @@ class Generator(eqx.Module):
                 stride=2,
                 padding=1,
                 use_bias=False,
-                key=keys[3],
+                key=keys[2],
             ),
             eqx.nn.BatchNorm(input_size=width * 2, axis_name="batch"),
             jax.nn.relu,
@@ -68,7 +57,7 @@ class Generator(eqx.Module):
                 stride=2,
                 padding=1,
                 use_bias=False,
-                key=keys[4],
+                key=keys[3],
             ),
             eqx.nn.BatchNorm(input_size=width, axis_name="batch"),
             jax.nn.relu,
@@ -79,7 +68,7 @@ class Generator(eqx.Module):
                 stride=2,
                 padding=1,
                 use_bias=False,
-                key=keys[5],
+                key=keys[4],
             ),
             jax.nn.tanh,
         ]
@@ -102,7 +91,7 @@ class Discriminator(eqx.Module):
         input_shape: tuple[int, int, int],
         key,
     ):
-        keys = jr.split(key, 6)
+        keys = jr.split(key, 5)
 
         height, width, channels = input_shape
 
@@ -152,23 +141,12 @@ class Discriminator(eqx.Module):
             eqx.nn.PReLU(0.2),
             eqx.nn.Conv2d(
                 in_channels=width * 8,
-                out_channels=width * 16,
-                kernel_size=4,
-                stride=2,
-                padding=1,
-                use_bias=False,
-                key=keys[4],
-            ),
-            eqx.nn.BatchNorm(width * 16, axis_name="batch"),
-            eqx.nn.PReLU(0.2),
-            eqx.nn.Conv2d(
-                in_channels=width * 16,
                 out_channels=1,
                 kernel_size=4,
                 stride=1,
                 padding=0,
                 use_bias=False,
-                key=keys[5],
+                key=keys[4],
             ),
         ]
 
@@ -183,7 +161,7 @@ class Discriminator(eqx.Module):
 
 
 if __name__ == "__main__":
-    image_size = (128, 128, 1)
+    image_size = (64, 64, 3)
     latent_size = 100
     batch_size = 64
 
