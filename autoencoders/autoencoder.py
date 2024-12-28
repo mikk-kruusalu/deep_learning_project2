@@ -102,7 +102,7 @@ if __name__ == "__main__":
     img = img.numpy()
     label = label.numpy()
 
-    y, h = jax.vmap(model)(jr.key(102), img)
+    y, h = jax.vmap(model, in_axes=(None, 0))(jr.key(102), img)
 
     print(img.shape)
     print(label.shape)
