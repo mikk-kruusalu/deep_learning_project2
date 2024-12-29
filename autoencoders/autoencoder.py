@@ -35,17 +35,17 @@ class MalariaAutoencoder(eqx.Module):
         ) = jr.split(key, 14)
 
         self.encoder = [
-            eqx.nn.Conv2d(in_channels, 32, kernel_size=5, key=key1),
+            eqx.nn.Conv2d(in_channels, 32, kernel_size=3, key=key1),
             eqx.nn.MaxPool2d(kernel_size=2),
             jax.nn.relu,
             eqx.nn.Conv2d(32, 32, kernel_size=1, key=key2),
             jax.nn.relu,
-            eqx.nn.Conv2d(32, 64, kernel_size=5, stride=2, key=key3),
+            eqx.nn.Conv2d(32, 64, kernel_size=3, stride=2, key=key3),
             eqx.nn.MaxPool2d(kernel_size=4, stride=2),
             jax.nn.relu,
             eqx.nn.Conv2d(64, 64, kernel_size=1, key=key4),
             jax.nn.relu,
-            eqx.nn.Conv2d(64, 128, kernel_size=7, stride=2, key=key5),
+            eqx.nn.Conv2d(64, 128, kernel_size=3, stride=1, key=key5),
             eqx.nn.MaxPool2d(kernel_size=5, stride=2),
             jax.nn.relu,
             jnp.ravel,
@@ -61,24 +61,22 @@ class MalariaAutoencoder(eqx.Module):
             jax.nn.relu,
             lambda x: jnp.reshape(x, (128, 4, 4)),
             lambda x: upsample_2d(x, factor=3),
-            eqx.nn.ConvTranspose2d(128, 64, kernel_size=7, stride=2, key=dkey5),
+            eqx.nn.ConvTranspose2d(128, 64, kernel_size=3, stride=1, key=dkey5),
             jax.nn.relu,
             eqx.nn.ConvTranspose2d(64, 64, kernel_size=1, key=dkey4),
             jax.nn.relu,
             lambda x: upsample_2d(x, factor=2),
             lambda x: jnp.pad(x, ((0, 0), (1, 1), (1, 1))),
-            eqx.nn.ConvTranspose2d(64, 32, kernel_size=5, stride=2, key=dkey3),
+            eqx.nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, key=dkey3),
             jax.nn.relu,
             eqx.nn.ConvTranspose2d(32, 32, kernel_size=1, key=dkey2),
             jax.nn.relu,
             lambda x: jnp.pad(x, ((0, 0), (0, 1), (0, 1))),
-            eqx.nn.ConvTranspose2d(32, in_channels, kernel_size=5, key=dkey1),
+            eqx.nn.ConvTranspose2d(32, in_channels, kernel_size=3, key=dkey1),
             jax.nn.sigmoid,
         ]
 
-    def __call__(
-        self, key, x: Float[Array, "1 128 128"]
-    ):  # -> Float[Array, "1 128 128"]:
+    def __call__(self, key, x: Float[Array, "1 64 64"]):
         for layer in self.encoder:
             x = layer(x)
 
@@ -94,7 +92,9 @@ if __name__ == "__main__":
 
     from data.malaria import get_dataloaders, load_dataset
 
-    train_data, test_data = load_dataset("autoencoders/data/malaria")
+    train_data, test_data = load_dataset(
+        "autoencoders/data/malaria", remove_boundary=True
+    )
     train_loader, _ = get_dataloaders(train_data, test_data, 64)
 
     img, label = next(iter(train_loader))

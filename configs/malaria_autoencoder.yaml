@@ -6,5 +6,6 @@ hyperparams:
   nepochs: 2
   model:
     hidden_size: 2
+  remove_cell_boundary: True
 logger:
   project: deep-learning-malaria-autoencoder

@@ -221,7 +221,9 @@ if __name__ == "__main__":
         config=config["hyperparams"],
     )
 
-    train_data, test_data = load_dataset("autoencoders/data/malaria")
+    train_data, test_data = load_dataset(
+        "autoencoders/data/malaria", remove_boundary=hyperparams["remove_cell_boundary"]
+    )
     train_loader, test_loader = get_dataloaders(
         train_data, test_data, hyperparams["batch_size"]
     )
